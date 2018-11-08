@@ -34,6 +34,10 @@ app.post('/pusher/auth', (req, res) => {
     res.send(auth);
 });
 
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'dist/web-RTC-Pusher/index.html'));
+});
+
 //listen on the app
 app.listen(3000, () => {
     return console.log('Server is up on 3000')
