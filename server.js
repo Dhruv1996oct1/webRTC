@@ -10,7 +10,7 @@ const app = express();
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-app.use(express.static(path.join(__dirname, 'dist/web-RTC-Pusher')));
+app.use(express.static(path.join(__dirname, 'dist', 'web-RTC-Pusher', 'index.html')));
 // Session middleware
 
 // Create an instance of Pusher
@@ -35,7 +35,7 @@ app.post('/pusher/auth', (req, res) => {
 });
 
 app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, 'dist/web-RTC-Pusher/index.html'));
+    res.sendFile(path.join(__dirname, 'dist', 'web-RTC-Pusher', 'index.html'));
 });
 
 //listen on the app
