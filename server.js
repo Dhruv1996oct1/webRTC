@@ -23,6 +23,8 @@ const pusher = new Pusher({
     encrypted: true
 });
 
+var usersOnCall = [];
+
 // get authentictation for the channel;
 app.post('/pusher/auth', (req, res) => {
     const socketId = req.body.socket_id;
@@ -34,8 +36,20 @@ app.post('/pusher/auth', (req, res) => {
     res.send(auth);
 });
 
-app.get('*', (req, res) => {
+/* app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'dist/web-RTC-Pusher/index.html'));
+}); */
+
+app.get('/api/getUsersOnCall', (req, res) => {
+    res.json({ "usersOnCall": usersOnCall });
+});
+
+app.post('/api/usersOnCall', (req, res) => {
+    usersOnCall = req.body.usersOnCall;
+    pusher.trigger("presence-videocall", "usersOnCall", {
+        usersOnCall: req.body.usersOnCall
+    });
+    res.json({ "success": true });
 });
 
 //listen on the app

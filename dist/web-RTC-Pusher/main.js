@@ -59,6 +59,7 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _environments_environment__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../environments/environment */ "./src/environments/environment.ts");
 /* harmony import */ var pusher_js__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! pusher-js */ "./node_modules/pusher-js/dist/web/pusher.js");
 /* harmony import */ var pusher_js__WEBPACK_IMPORTED_MODULE_2___default = /*#__PURE__*/__webpack_require__.n(pusher_js__WEBPACK_IMPORTED_MODULE_2__);
+/* harmony import */ var _angular_common_http__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! @angular/common/http */ "./node_modules/@angular/common/fesm5/http.js");
 var __decorate = (undefined && undefined.__decorate) || function (decorators, target, key, desc) {
     var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
     if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
@@ -71,10 +72,13 @@ var __metadata = (undefined && undefined.__metadata) || function (k, v) {
 
 
 
+
 var AppComponent = /** @class */ (function () {
-    function AppComponent() {
-        this.users = Array(0);
+    function AppComponent(http) {
+        this.http = http;
+        this.users = new Array(0);
         this.btnHide = true;
+        this.usersOnCall = new Array(0);
         this.pusher = new pusher_js__WEBPACK_IMPORTED_MODULE_2___default.a(_environments_environment__WEBPACK_IMPORTED_MODULE_1__["environment"].pusher.key, {
             cluster: _environments_environment__WEBPACK_IMPORTED_MODULE_1__["environment"].pusher.cluster,
             encrypted: true,
@@ -83,7 +87,14 @@ var AppComponent = /** @class */ (function () {
     }
     AppComponent.prototype.ngOnInit = function () {
         this._setRTC();
+        this._getOnCallUsers();
         this._bindEvents();
+    };
+    AppComponent.prototype._getOnCallUsers = function () {
+        var _this = this;
+        this.http.get('/api/getUsersOnCall').subscribe(function (users) {
+            _this.usersOnCall = users["usersOnCall"];
+        });
     };
     AppComponent.prototype._setRTC = function () {
         this._GetRTCPeerConnection();
@@ -176,6 +187,9 @@ var AppComponent = /** @class */ (function () {
                 _this._endCall();
             }
         });
+        this.channel.bind("usersOnCall", function (users) {
+            _this.usersOnCall = users.usersOnCall;
+        });
     };
     AppComponent.prototype._toggleEndCallButton = function () {
         if (document.getElementById("endCall").style.display == 'block') {
@@ -196,9 +210,12 @@ var AppComponent = /** @class */ (function () {
         this._toggleEndCallButton();
     };
     AppComponent.prototype.endCurrentCall = function () {
+        var _this = this;
         this.channel.trigger("client-endcall", {
             "room": this.room
         });
+        this.usersOnCall = this.usersOnCall.filter(function (user) { return user != _this.room && user != _this.id; });
+        this.http.post('/api/usersOnCall', { usersOnCall: this.usersOnCall }).subscribe(function (data) { });
         this._endCall();
     };
     //Send the ICE Candidate to the remote peer
@@ -212,30 +229,38 @@ var AppComponent = /** @class */ (function () {
     };
     AppComponent.prototype.callUser = function (user) {
         var _this = this;
-        this._getCam()
-            .then(function (stream) {
-            if (window.URL) {
-                document.getElementById("selfview")["src"] = window.URL.createObjectURL(stream);
-            }
-            else {
-                document.getElementById("selfview")["src"] = stream;
-            }
-            _this._toggleEndCallButton();
-            _this.caller.addStream(stream);
-            _this.localUserMedia = stream;
-            _this.caller.createOffer().then(function (desc) {
-                _this.caller.setLocalDescription(new RTCSessionDescription(desc));
-                _this.channel.trigger("client-sdp", {
-                    "sdp": desc,
-                    "room": user,
-                    "from": _this.id
+        if (!this.usersOnCall.includes(user)) {
+            this._getCam()
+                .then(function (stream) {
+                if (window.URL) {
+                    document.getElementById("selfview")["src"] = window.URL.createObjectURL(stream);
+                }
+                else {
+                    document.getElementById("selfview")["src"] = stream;
+                }
+                _this._toggleEndCallButton();
+                _this.caller.addStream(stream);
+                _this.localUserMedia = stream;
+                _this.caller.createOffer().then(function (desc) {
+                    _this.caller.setLocalDescription(new RTCSessionDescription(desc));
+                    _this.channel.trigger("client-sdp", {
+                        "sdp": desc,
+                        "room": user,
+                        "from": _this.id
+                    });
+                    _this.room = user;
+                    _this.usersOnCall.push(user);
+                    _this.usersOnCall.push(_this.id);
+                    _this.http.post('/api/usersOnCall', { usersOnCall: _this.usersOnCall }).subscribe(function (data) { });
                 });
-                _this.room = user;
+            })
+                .catch(function (error) {
+                console.log('an error occured', error);
             });
-        })
-            .catch(function (error) {
-            console.log('an error occured', error);
-        });
+        }
+        else {
+            alert(user + 'is on another call');
+        }
     };
     ;
     AppComponent.prototype._getCam = function () {
@@ -288,7 +313,7 @@ var AppComponent = /** @class */ (function () {
             template: __webpack_require__(/*! ./app.component.html */ "./src/app/app.component.html"),
             styles: [__webpack_require__(/*! ./app.component.css */ "./src/app/app.component.css")]
         }),
-        __metadata("design:paramtypes", [])
+        __metadata("design:paramtypes", [_angular_common_http__WEBPACK_IMPORTED_MODULE_3__["HttpClient"]])
     ], AppComponent);
     return AppComponent;
 }());
@@ -309,7 +334,8 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "AppModule", function() { return AppModule; });
 /* harmony import */ var _angular_platform_browser__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! @angular/platform-browser */ "./node_modules/@angular/platform-browser/fesm5/platform-browser.js");
 /* harmony import */ var _angular_core__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! @angular/core */ "./node_modules/@angular/core/fesm5/core.js");
-/* harmony import */ var _app_component__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./app.component */ "./src/app/app.component.ts");
+/* harmony import */ var _angular_common_http__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! @angular/common/http */ "./node_modules/@angular/common/fesm5/http.js");
+/* harmony import */ var _app_component__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./app.component */ "./src/app/app.component.ts");
 var __decorate = (undefined && undefined.__decorate) || function (decorators, target, key, desc) {
     var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
     if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
@@ -319,19 +345,21 @@ var __decorate = (undefined && undefined.__decorate) || function (decorators, ta
 
 
 
+
 var AppModule = /** @class */ (function () {
     function AppModule() {
     }
     AppModule = __decorate([
         Object(_angular_core__WEBPACK_IMPORTED_MODULE_1__["NgModule"])({
             declarations: [
-                _app_component__WEBPACK_IMPORTED_MODULE_2__["AppComponent"]
+                _app_component__WEBPACK_IMPORTED_MODULE_3__["AppComponent"]
             ],
             imports: [
-                _angular_platform_browser__WEBPACK_IMPORTED_MODULE_0__["BrowserModule"]
+                _angular_platform_browser__WEBPACK_IMPORTED_MODULE_0__["BrowserModule"],
+                _angular_common_http__WEBPACK_IMPORTED_MODULE_2__["HttpClientModule"]
             ],
             providers: [],
-            bootstrap: [_app_component__WEBPACK_IMPORTED_MODULE_2__["AppComponent"]]
+            bootstrap: [_app_component__WEBPACK_IMPORTED_MODULE_3__["AppComponent"]]
         })
     ], AppModule);
     return AppModule;

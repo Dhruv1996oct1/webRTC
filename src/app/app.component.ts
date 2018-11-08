@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { environment } from '../environments/environment';
 import Pusher from 'pusher-js';
+import { HttpClient } from '@angular/common/http';
 
 
 @Component({
@@ -14,7 +15,7 @@ export class AppComponent implements OnInit {
     channel: any;
     usersOnline: any;
     id: any;
-    users: Array<any> = Array(0);
+    users: Array<any> = new Array(0);
     sessionDesc: any;
     currentcaller: any;
     room: any;
@@ -23,7 +24,8 @@ export class AppComponent implements OnInit {
     self: any;
     remote: any;
     btnHide: boolean = true;
-    constructor() {
+    usersOnCall: Array<string> = new Array(0);
+    constructor(private http: HttpClient) {
         this.pusher = new Pusher(environment.pusher.key, {
             cluster: environment.pusher.cluster,
             encrypted: true,
@@ -33,7 +35,14 @@ export class AppComponent implements OnInit {
 
     ngOnInit() {
         this._setRTC();
+        this._getOnCallUsers();
         this._bindEvents();
+    }
+
+    protected _getOnCallUsers() {
+        this.http.get('/api/getUsersOnCall').subscribe((users) => {
+            this.usersOnCall = users["usersOnCall"];
+        });
     }
 
     protected _setRTC() {
@@ -60,7 +69,7 @@ export class AppComponent implements OnInit {
         });
 
         this.channel.bind('pusher:member_added', (member) => {
-            this.users.push(member.id)
+            this.users.push(member.id);
         });
 
         this.channel.bind('pusher:member_removed', (member) => {
@@ -140,6 +149,10 @@ export class AppComponent implements OnInit {
             }
         });
 
+        this.channel.bind("usersOnCall", (users) => {
+            this.usersOnCall = users.usersOnCall;
+        })
+
     }
 
     protected _toggleEndCallButton() {
@@ -162,6 +175,8 @@ export class AppComponent implements OnInit {
         this.channel.trigger("client-endcall", {
             "room": this.room
         });
+        this.usersOnCall = this.usersOnCall.filter(user => user != this.room && user != this.id);
+        this.http.post('/api/usersOnCall', { usersOnCall: this.usersOnCall }).subscribe(data => { });
         this._endCall();
     }
 
@@ -176,30 +191,37 @@ export class AppComponent implements OnInit {
     }
 
     public callUser(user) {
-        this._getCam()
-            .then(stream => {
-                if (window.URL) {
-                    document.getElementById("selfview")["src"] = window.URL.createObjectURL(stream);
-                } else {
-                    document.getElementById("selfview")["src"] = stream;
-                }
-                this._toggleEndCallButton();
-                this.caller.addStream(stream);
-                this.localUserMedia = stream;
-                this.caller.createOffer().then((desc) => {
-                    this.caller.setLocalDescription(new RTCSessionDescription(desc));
-                    this.channel.trigger("client-sdp", {
-                        "sdp": desc,
-                        "room": user,
-                        "from": this.id
+        if (!this.usersOnCall.includes(user)) {
+            this._getCam()
+                .then(stream => {
+                    if (window.URL) {
+                        document.getElementById("selfview")["src"] = window.URL.createObjectURL(stream);
+                    } else {
+                        document.getElementById("selfview")["src"] = stream;
+                    }
+                    this._toggleEndCallButton();
+                    this.caller.addStream(stream);
+                    this.localUserMedia = stream;
+                    this.caller.createOffer().then((desc) => {
+                        this.caller.setLocalDescription(new RTCSessionDescription(desc));
+                        this.channel.trigger("client-sdp", {
+                            "sdp": desc,
+                            "room": user,
+                            "from": this.id
+                        });
+                        this.room = user;
+                        this.usersOnCall.push(user);
+                        this.usersOnCall.push(this.id);
+                        this.http.post('/api/usersOnCall', { usersOnCall: this.usersOnCall }).subscribe(data => { });
                     });
-                    this.room = user;
+                })
+                .catch(error => {
+                    console.log('an error occured', error);
                 });
-
-            })
-            .catch(error => {
-                console.log('an error occured', error);
-            })
+        }
+        else {
+            alert(user + 'is on another call');
+        }
     };
 
     protected _getCam() {
