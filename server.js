@@ -39,6 +39,6 @@ app.get('*', (req, res) => {
 });
 
 //listen on the app
-app.listen(3000, () => {
-    return console.log('Server is up on 3000')
+app.listen(process.env.PORT || 3000, () => {
+    return console.log('Server is up on', app.settings.env)
 });
